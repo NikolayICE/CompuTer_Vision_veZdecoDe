@@ -1,0 +1,34 @@
+import tensorflow as tf
+import numpy as np
+import cv2 as cv
+import matplotlib.pyplot as plt
+
+
+def calc_metric(image, x, y, w, h):
+    image_cropped = image[y:y + h, x:x + w, 0:3].numpy()
+    min_dist = 10000000000000
+    plt.imshow(image_cropped)
+    plt.show()
+    dom_color = []
+    for red in range(0, 256, 20):
+        for green in range(0, 256, 20):
+            for blue in range(0, 256, 20):
+                dist = 0
+                for height in range(0, h):
+                    for width in range(0, w):
+                        dist += ((red - image_cropped[height][width][0]) ** 2 + (
+                                    green - image_cropped[height][width][1]) ** 2 + (
+                                             blue - image_cropped[height][width][2]) ** 2)
+                if dist < min_dist:
+                    min_dist = dist
+                    dom_color = [red, green, blue]
+    print(dom_color)
+
+
+image = tf.io.read_file('/content/sample_data/img1.jpg')
+image = tf.image.decode_jpeg(image, channels=3)
+
+calc_metric(image, 200, 120, 80, 80)
+
+
+
