@@ -1,0 +1,107 @@
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+import csv
+
+tf.random.set_seed(1)
+
+labels = []
+df = pd.read_csv('val.csv')
+df_arr = df.to_numpy()
+
+for i in range(len(df_arr)):
+    if df_arr[i][1] == True:
+        labels.append([1, 0])
+    else:
+        labels.append([0, 1])
+
+images = []
+for i in range(0, 99):
+    image_n = tf.io.read_file(f'data1/img{i}.jpg')
+    image_k = tf.image.decode_jpeg(image_n, channels=3)
+    image = tf.image.resize(image_k, size=(200, 200))
+    images.append(image / 255.0)
+
+ds = tf.data.Dataset.from_tensor_slices((images, labels))
+
+ds_train = ds.take(75)
+ds_test = ds.skip(75)
+
+ds_train = ds_train.shuffle(75)
+ds_train = ds_train.repeat()
+ds_train = ds_train.batch(5)
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation='relu'),
+    tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+    tf.keras.layers.Dropout(rate=0.5),
+    tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'),
+    tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+    tf.keras.layers.Dropout(rate=0.5),
+    tf.keras.layers.Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'),
+    tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+    tf.keras.layers.Conv2D(filters=256, kernel_size=(3, 3), padding='same', activation='relu'),
+    tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+    tf.keras.layers.Conv2D(filters=512, kernel_size=(3, 3), padding='same', activation='relu'),
+    tf.keras.layers.GlobalAveragePooling2D(),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(units=2, activation='softmax')]
+)
+
+model.build(input_shape=(None, 200, 200, 3))
+model.summary()
+
+model.compile(optimizer=tf.keras.optimizers.Adam(), loss=tf.keras.losses.BinaryCrossentropy(), metrics=['accuracy'])
+history = model.fit(ds_train, epochs=2000, steps_per_epoch=5)
+
+results = model.evaluate(ds_test.batch(5), verbose=0)
+results_all = model.evaluate(ds.batch(5), verbose=0)
+print(results)
+print(results_all)
+
+
+def find_car(input_dir, output_cars='output_cars.csv'):
+    ims, labels = [], []
+    for i in range(0, 99):
+        image_n = tf.io.read_file(f'{input_dir}/img{i}.jpg')
+        image_k = tf.image.decode_jpeg(image_n, channels=3)
+        image = tf.image.resize(image_k, size=(200, 200))
+        ims.append(image / 255.0)
+
+    data = pd.read_csv('val.csv')
+    data_p = data.to_numpy()
+
+    for j in range(len(data_p)):
+        if data_p[j][1] == True:
+            labels.append(1)
+        else:
+            labels.append(0)
+
+    dataset = tf.data.Dataset.from_tensor_slices((ims, labels))
+
+    ims = np.array(ims)
+
+    labs = model(ims)
+
+    ans = np.argmax(labs, axis=1)
+    for i in range(len(ans)):
+        if ans[i] == 0:
+            ans[i] = False
+        else:
+            ans[i] = True
+    file = open(f'{output_cars}', 'w')
+    writ = csv.writer(file)
+    names = ['0' * (5 - len(str(i))) +str(i+1)+ '.jpg' for i in range(99)]
+    for i in range(99):
+        writ.writerow([names[i], bool(ans[i])])
+
+
+
+
+
+
+find_car('data1')
+
+
+
+
